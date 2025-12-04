@@ -1,0 +1,85 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace BallisticsSimulation
+{
+    public class Projectile : MonoBehaviour
+    {
+        private BallisticsHandler _solver;
+        private Vector3 _originPos;
+        private Vector3 _straight;
+        private Vector3 _right;
+        private List<State> _path;
+        [SerializeField] private GameObject _explosionEffect;
+
+        public void Init(BallisticsHandler solver, float lifeTime)
+        {
+            _solver = solver;
+            _straight = _solver.StraightVector;
+            _right = _solver.RightVector;
+            _originPos = new Vector3(
+                solver.Origin.position.x,
+                solver.Origin.position.y,
+                solver.Origin.position.z
+                );
+
+            _path = new List<State>(_solver.GetTrajectory());
+
+            StartCoroutine(Fly());
+            Destroy(gameObject, lifeTime);
+        }
+
+        private IEnumerator Fly()
+        {
+            var path = new List<State>(_solver.GetTrajectory());
+            if (path == null || path.Count < 2) yield break;
+
+            float simTime = 0f;
+            int seg = 0;
+
+            while (seg < path.Count - 1)
+            {
+                simTime += Time.deltaTime;
+
+                while (seg < path.Count - 1 && simTime >= (float)path[seg + 1].T)
+                    seg++;
+
+                if (seg >= path.Count - 1) break;
+
+                float t0 = (float)path[seg].T;
+                float t1 = (float)path[seg + 1].T;
+                float k = Mathf.InverseLerp(t0, t1, simTime);
+
+                Vector3 p0 = LocalToWorld(path[seg]);
+                Vector3 p1 = LocalToWorld(path[seg + 1]);
+
+                transform.position = Vector3.Lerp(p0, p1, k);
+                Vector3 dir = (p1 - p0).normalized;
+                if (dir.sqrMagnitude > 0f)
+                    transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+
+                yield return null;
+            }
+
+            Vector3 LocalToWorld(State s) =>
+                (new Vector3(_originPos.x, 0, _originPos.z)) +
+                _straight * (float)s.X
+              + Vector3.up * (float)s.Y
+              + _right * (float)s.Z;
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (other.tag == "Floor")
+            {
+                GameObject explosion = Instantiate(_explosionEffect);
+                explosion.transform.position = transform.position;
+
+                Vector3 finishPosition = transform.position;
+                finishPosition.y = 0;
+                Destroy(gameObject);
+            }
+        }
+    }
+}
