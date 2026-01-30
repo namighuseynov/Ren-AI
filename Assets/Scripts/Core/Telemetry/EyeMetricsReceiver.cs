@@ -31,7 +31,9 @@ namespace RenAI.Core.Telemetry
         public event Action OnConnectionLost;
         public event Action OnConnectionRestored;
 
-        public EyeMetricsPacket Latest { get; private set; }
+        [SerializeField] private EyeMetricsPacket _latest;
+
+        public EyeMetricsPacket Latest { get { return _latest; } private set { _latest = value; } }
         public bool HasEverReceived { get; private set; }
         public bool IsReceivingNow { get; private set; }
 
